@@ -1,4 +1,4 @@
-# Methods
+# Defacing (optional)
 
 We describe our methods in this chapter.
 
