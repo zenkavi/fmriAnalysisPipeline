@@ -1,3 +1,5 @@
+# (PART) fMRI Preprocessing {-}
+
 # BIDS
 
-Here is a review of existing methods.
+## DICOM to Nifti Conversion

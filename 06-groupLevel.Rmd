@@ -1,5 +1,1 @@
-# (PART) Part II: Analysis {-}
-
-# Level 1 (Subject level)
-
-We have finished a nice book.
+# Group level

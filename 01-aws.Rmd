@@ -1,23 +1,129 @@
-# (PART) Part I: Preprocessing {-}
+# (PART) Cluster setup {-}
 
-# AWS {#aws}
+# Setup computing resources
 
-You can label chapter and section titles using `{#label}` after them, e.g., we can reference Chapter \@ref(intro). If you do not manually label them, there will be automatic labels anyway, e.g., Chapter \@ref(methods).
+## Prerequisites
 
-Figures and tables with captions will be placed in `figure` and `table` environments, respectively.
+If you're not familiar with AWS please complete the chapters ["Getting Started in the Cloud"](https://www.hpcworkshops.com/02-aws-getting-started.html) and ["Create an HPC Cluster"](https://www.hpcworkshops.com/03-hpc-aws-parallelcluster-workshop.html) in this [AWS HPC Workshop](https://www.hpcworkshops.com/).
 
-```{r nice-fig, fig.cap='Here is a nice figure!', out.width='80%', fig.asp=.75, fig.align='center'}
-par(mar = c(4, 4, .1, .1))
-plot(pressure, type = 'b', pch = 19)
+Make sure to familiarize yourself with the following:  
+- AWS dashboard  
+- S3 and how to create buckets  
+- Creating and deleting EC2 instances, SSHing into them
+- Have [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) installed on your system  
+  
+If you run AWS CLI through the Docker image my commands look like 
+
+```
+docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 sync
 ```
 
-Reference a figure by its code chunk label with the `fig:` prefix, e.g., see Figure \@ref(fig:nice-fig). Similarly, you can reference tables generated from `knitr::kable()`, e.g., see Table \@ref(tab:nice-tab).
+instead of 
 
-```{r nice-tab, tidy=FALSE}
-knitr::kable(
-  head(iris, 20), caption = 'Here is a nice table!',
-  booktabs = TRUE
-)
+```
+aws s3 sync
 ```
 
-You can write citations, too. For example, we are using the **bookdown** package [@R-bookdown] in this sample book, which was built on top of R Markdown and **knitr** [@xie2015].
+If you're not familiar with Docker and how images work please go through at least [this tutorial](https://docs.docker.com/get-started/) because Docker images and containers will be heavily used in the rest of this book.
+
+## Move data to S3
+
+- Transfer data to S3
+  - Single file  
+  ```
+  export STUDY_DIR=/Users/zeynepenkavi/Documents/RangelLab/DescribedVsLearned_fmri/preproc
+  docker run --rm -it -v ~/.aws:/root/.aws -v $STUDY_DIR/00_aws:/home amazon/aws-cli s3 cp /home/test-setup-env.sh s3://described-vs-experienced/test-setup-env.sh
+  ```
+
+  - One subject folder  
+  **Note: mounting the whole raw data folder uses a lot of CPU so you should prob copy the directory you want to copy into a temporary empty dir first**  
+  
+  ```
+  export TMP_DIR=/Users/zeynepenkavi/Downloads/tmp
+  mkdir $TMP_DIR
+  cp -r /Users/zeynepenkavi/Downloads/GTavares_2017_arbitration/raw_fmri_data/AR-GT-BUNDLES-07_RANGEL $TMP_DIR/AR-GT-BUNDLES-07_RANGEL
+  cd $TMP_DIR
+  docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 sync /aws/AR-GT-BUNDLES-07_RANGEL s3://described-vs-experienced/raw_fmri_data/AR-GT-BUNDLES-07_RANGEL --exclude "*.DS_Store"
+  ```
+
+- Check if transfer is successful. Trailing "/" matters for the content  
+
+```
+aws s3 ls s3://described-vs-experienced/bids_nifti_wface/
+```
+
+- Download data from S3. Note change in command because normally you're running `aws` as an alias but need to make sure that a volume to download is attached when syncing from S3
+```
+docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/cluster_scripts amazon/aws-cli s3 sync s3://described-vs-experienced/ddModels/cluster_scripts/optim_out /cluster_scripts/optim_out
+```
+
+## Setup cluster
+
+This assumes that you have gone through [this tutorial mentioned above](https://www.hpcworkshops.com/03-hpc-aws-parallelcluster-workshop.html) and installed `aws-parallelcluster` on your system.
+
+**NOTE: THESE INSTRUCTIONS ARE FOR ParallelCluster VERSION 2.X. THEY NEED TO BE UPDATED FOR 3.X**
+
+Use custom bootstrap actions to set up master and compute nodes
+
+- Define env variables
+```
+export KEY_NAME=`aws ec2 describe-key-pairs | jq -j '.KeyPairs[0].KeyName'`
+export SG_ID=`aws ec2 describe-security-groups --filters Name=group-name,Values="test-cluster"  | jq -j '.SecurityGroups[0].GroupId'`
+export SUBNET_ID=`aws ec2 describe-subnets | jq -j '.Subnets[0].SubnetId'`
+export VPC_ID=`aws ec2 describe-vpcs | jq -j '.Vpcs[0].VpcId'`
+export REGION=`aws configure get region`
+```
+
+- Copy script with bootstrap actions to s3
+```
+export STUDY_DIR=/Users/zeynepenkavi/Documents/RangelLab/DescribedVsLearned_fmri/preproc/00_aws
+cd $STUDY_DIR
+docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 cp /aws/test-setup-env.sh s3://described-vs-experienced/test-setup-env.sh
+```
+
+- Set up temporary cluster config file with the environment variables piped in. Note [`make_cluster_config_ini.sh`](https://github.com/zenkavi/DescribedVsLearned_fmri/blob/master/preproc/00_aws/make_cluster_config_ini.sh) creates a `tmp.ini` file with the values piped in. Since I don't want to share these values publicly this file is not committed to my git history through a global setting in my `~/.gitignore` (ignores all files with `tmp` in the name).
+```
+./make_cluster_config_ini.sh
+```
+
+- Create cluster using temporary custom config.
+```
+pcluster create test-cluster -c tmp.ini
+```
+
+- Check cluster status
+```
+pcluster list --color
+```
+
+- Log onto cluster. You can directly ssh to the master node, but the compute nodes are only accessible from the master node, not from the Internet.
+```
+pcluster ssh test-cluster -i $KEYS_PATH/test-cluster.pem
+```
+
+- Stop and start compute nodes of cluster
+```
+pcluster stop test-cluster
+
+pcluster start test-cluster
+```
+
+- Update cluster
+```
+pcluster update test-cluster -c tmp.ini
+```
+
+- Check cluster resources
+```
+sinfo
+```
+
+- Change node status (see https://slurm.schedmd.com/scontrol.html for other state options)
+```
+scontrol update NodeName={NODE_NAME} State=POWER_DOWN
+```
+
+- Delete cluster
+```
+pcluster delete test-cluster
+```
