@@ -1,5 +1,0 @@
-# (PART) fMRI Preprocessing {-}
-
-# BIDS
-
-## DICOM to Nifti Conversion

@@ -14,4 +14,4 @@ description: "This is an accumulation of my notes on how to build a pipeline to 
 
 # Overview {-}
 
-This is an accumulation of my notes on how to build a pipeline to analyze fMRI data. It will first walk you through how to setup a cloud-based cluster using AWS so you have sufficient computational resources to analyze your data. Then it will go over how to preprocess your and analyze your data on the cluster you set up.
+This is an accumulation of my notes on how to build a pipeline to analyze fMRI data. It will first walk you through how to setup a cloud-based cluster using AWS so you have sufficient computational resources to analyze your data. Then it will go over how to preprocess and analyze your data on the cluster you set up.

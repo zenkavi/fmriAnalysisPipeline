@@ -1,17 +1,62 @@
-# (PART) Cluster setup {-}
+# (PART) Computing resources {-}
 
-# Setup computing resources
+# General approach
 
-## Prerequisites
+In this chapter I will go through some of my general practices that will come up repeatedly later in the book. 
+
+**Environment variables**  
+
+Often I will create environment variables
+  - Shortens and simplifies commands
+  - Makes it easier to repeat commands for different parameters
+
+**Global `.gitignore`**
+
+Throughout the process of building and interacting with the pipeline there will be information we want to make sure we don't post anywhere online and share publicly (even in private Github repos).
+
+- Creating temporary files that are never committed and/or pushed to a repository available online. This is particularly important for credential information that can give others access to your AWS account, which will have payment information associated with it (ie. if you post this, you account can be hacked and you can wrack up unexpected charges).  
+
+Assuming you have `git` installed on your system (see [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) if you don't) you can set your global `.gitignore` file from your home directory (e.g. for a Mac user this might look like `/Users/zeynepenkavi`)  
+
+For example, a global `.gitignore` file that looks like this:
+
+```
+.RData
+.Rproj.user
+.Rhistory
+__pycache__
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+.DS_Store
+.pem
+tmp*
+```
+should never track or commit changes for files that start with `tmp` or end with `.pem` etc.  
+
+AWS keys that use to interact between your machine and the cloud are files with the `.pem` extension. Putting this extension in our global `.gitignore` is one way to avoid posting this information online.
+
+
+# Prerequisites
+
+## Tutorials
 
 If you're not familiar with AWS please complete the chapters ["Getting Started in the Cloud"](https://www.hpcworkshops.com/02-aws-getting-started.html) and ["Create an HPC Cluster"](https://www.hpcworkshops.com/03-hpc-aws-parallelcluster-workshop.html) in this [AWS HPC Workshop](https://www.hpcworkshops.com/).
 
-Make sure to familiarize yourself with the following:  
+After completing these tutorials you should be familiar with:  
 - AWS dashboard  
 - S3 and how to create buckets  
 - Creating and deleting EC2 instances, SSHing into them
 - Have [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) installed on your system  
   
+
+## Installations
+
+### Docker
+
+If you're not familiar with Docker and how images work please go through at least [this tutorial](https://docs.docker.com/get-started/) because Docker images and containers will be heavily used in the rest of this book.
+
+### AWS-CLI
+
 If you run AWS CLI through the Docker image my commands look like 
 
 ```
@@ -24,9 +69,9 @@ instead of
 aws s3 sync
 ```
 
-If you're not familiar with Docker and how images work please go through at least [this tutorial](https://docs.docker.com/get-started/) because Docker images and containers will be heavily used in the rest of this book.
+### AWS-Parallelcluster  
 
-## Move data to S3
+# Interacting with S3
 
 - Transfer data to S3
   - Single file  
@@ -57,7 +102,7 @@ aws s3 ls s3://described-vs-experienced/bids_nifti_wface/
 docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/cluster_scripts amazon/aws-cli s3 sync s3://described-vs-experienced/ddModels/cluster_scripts/optim_out /cluster_scripts/optim_out
 ```
 
-## Setup cluster
+# Setup cluster
 
 This assumes that you have gone through [this tutorial mentioned above](https://www.hpcworkshops.com/03-hpc-aws-parallelcluster-workshop.html) and installed `aws-parallelcluster` on your system.
 
@@ -74,14 +119,14 @@ export VPC_ID=`aws ec2 describe-vpcs | jq -j '.Vpcs[0].VpcId'`
 export REGION=`aws configure get region`
 ```
 
-- Copy script with bootstrap actions to s3
+- Copy script with [bootstrap actions](https://docs.aws.amazon.com/parallelcluster/latest/ug/pre_post_install.html) to s3
 ```
 export STUDY_DIR=/Users/zeynepenkavi/Documents/RangelLab/DescribedVsLearned_fmri/preproc/00_aws
 cd $STUDY_DIR
 docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 cp /aws/test-setup-env.sh s3://described-vs-experienced/test-setup-env.sh
 ```
 
-- Set up temporary cluster config file with the environment variables piped in. Note [`make_cluster_config_ini.sh`](https://github.com/zenkavi/DescribedVsLearned_fmri/blob/master/preproc/00_aws/make_cluster_config_ini.sh) creates a `tmp.ini` file with the values piped in. Since I don't want to share these values publicly this file is not committed to my git history through a global setting in my `~/.gitignore` (ignores all files with `tmp` in the name).
+- Set up temporary cluster config file with the environment variables piped in. Note [`make_cluster_config_ini.sh`](https://github.com/zenkavi/DescribedVsLearned_fmri/blob/master/preproc/00_aws/make_cluster_config_ini.sh) creates a `tmp.ini` file with the values piped in. Since I don't want to share these values publicly this file is not committed to my git history through a global setting in my `~/.gitignore` (add `tmp*` to `~/.gitignore`).
 ```
 ./make_cluster_config_ini.sh
 ```
@@ -111,16 +156,6 @@ pcluster start test-cluster
 - Update cluster
 ```
 pcluster update test-cluster -c tmp.ini
-```
-
-- Check cluster resources
-```
-sinfo
-```
-
-- Change node status (see https://slurm.schedmd.com/scontrol.html for other state options)
-```
-scontrol update NodeName={NODE_NAME} State=POWER_DOWN
 ```
 
 - Delete cluster
