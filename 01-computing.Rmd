@@ -1,20 +1,46 @@
 # (PART) Computing resources {-}
 
-# General approach
+# My common practices
 
-In this chapter I will go through some of my general practices that will come up repeatedly later in the book. 
+First, I will go through some of my general practices that will come up repeatedly later in my notes. 
 
-**Environment variables**  
+## Environment variables
 
-Often I will create environment variables
-  - Shortens and simplifies commands
-  - Makes it easier to repeat commands for different parameters
+Often I create environment variables because this  
 
-**Global `.gitignore`**
+- Shortens and simplifies commands  
+- Makes it easier to repeat commands for different inputs  
+- Hides critical credential information that should not be typed out
 
-Throughout the process of building and interacting with the pipeline there will be information we want to make sure we don't post anywhere online and share publicly (even in private Github repos).
+If you're not familiar an environment variables [here is a quick overview](https://www.geeksforgeeks.org/environment-variables-in-linux-unix/).
 
-- Creating temporary files that are never committed and/or pushed to a repository available online. This is particularly important for credential information that can give others access to your AWS account, which will have payment information associated with it (ie. if you post this, you account can be hacked and you can wrack up unexpected charges).  
+For example if you type
+
+```
+echo $MY_VAR
+```
+and hit Enter you should see only an empty line unless there is a variable with this name defined in your session.  
+
+You can set an environment variable like this
+
+```
+export MY_VAR=Random
+```
+
+Note that there should be no spaces around the `=`.  
+
+Now when you type  
+
+```
+echo $MY_VAR
+```
+and hit Enter you should see the value you set the variable to.
+
+## Temporary files and global `.gitignore`
+
+Throughout the process of building and interacting with the pipeline there will be information we want to make sure we don't post anywhere online and share publicly (even in private Github repos).  
+
+I tend to deal with this by creating temporary files that are never committed and/or pushed to a repository available online. Often I call these `tmp.ini` or `tmp.txt`. This is particularly important for credential information that can give others access to your AWS account, which will have payment information associated with it (ie. if you post this, your account can be hacked and you can wrack up unexpected charges).  
 
 Assuming you have `git` installed on your system (see [here](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git) if you don't) you can set your global `.gitignore` file from your home directory (e.g. for a Mac user this might look like `/Users/zeynepenkavi`)  
 
@@ -33,21 +59,22 @@ tmp*
 ```
 should never track or commit changes for files that start with `tmp` or end with `.pem` etc.  
 
-AWS keys that use to interact between your machine and the cloud are files with the `.pem` extension. Putting this extension in our global `.gitignore` is one way to avoid posting this information online.
+AWS keys that are used to interact between your machine and the cloud are files with the `.pem` extension. Putting this extension in our global `.gitignore` is one way to avoid posting this information online. **I highly recommend creating a similar `.gitignore` file before you use any other code from my notes.**
 
 
 # Prerequisites
 
 ## Tutorials
 
-If you're not familiar with AWS please complete the chapters ["Getting Started in the Cloud"](https://www.hpcworkshops.com/02-aws-getting-started.html) and ["Create an HPC Cluster"](https://www.hpcworkshops.com/03-hpc-aws-parallelcluster-workshop.html) in this [AWS HPC Workshop](https://www.hpcworkshops.com/).
+If you have no experience at all with AWS I highly recommend starting with this [AWS HPC Workshop](https://www.hpcworkshops.com/).
 
-After completing these tutorials you should be familiar with:  
-- AWS dashboard  
-- S3 and how to create buckets  
-- Creating and deleting EC2 instances, SSHing into them
-- Have [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html) installed on your system  
-  
+Make sure to complete:  
+
+- [I. Getting Started in the Cloud](https://www.hpcworkshops.com/02-aws-getting-started.html)  
+  - Note: I will not be using Cloud9 for anything else in my notes (instead I build, use, delete my own clusters) but it is useful tool to know about when starting up  
+- [II. ParallelCluster CLI](https://www.hpcworkshops.com/04-pcluster-cli.html)  
+- [IV. Create and HPC Cluster](https://www.hpcworkshops.com/05-create-cluster.html)  
+- [V. Simulation with AWS Batch](https://www.hpcworkshops.com/07-aws-batch.html)  
 
 ## Installations
 
