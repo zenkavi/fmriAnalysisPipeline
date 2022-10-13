@@ -1,6 +1,6 @@
 # (PART) Computing resources {-}
 
-# My common practices
+# My common practices {#common-practices}
 
 First, I will go through some of my general practices that will come up repeatedly later in my notes. 
 
@@ -107,7 +107,7 @@ aws s3 sync
 
 # Interacting with S3
 
-- Transfer data to S3
+## Transfer data 
   - Single file  
   ```
   export STUDY_DIR=/Users/zeynepenkavi/Documents/RangelLab/DescribedVsLearned_fmri/preproc
@@ -125,13 +125,17 @@ aws s3 sync
   docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 sync /aws/AR-GT-BUNDLES-07_RANGEL s3://described-vs-experienced/raw_fmri_data/AR-GT-BUNDLES-07_RANGEL --exclude "*.DS_Store"
   ```
 
-- Check if transfer is successful. Trailing "/" matters for the content  
+## Check transfer  
+
+Trailing "/" matters for the content  
 
 ```
 aws s3 ls s3://described-vs-experienced/bids_nifti_wface/
 ```
 
-- Download data from S3. Note change in command because normally you're running `aws` as an alias but need to make sure that a volume to download is attached when syncing from S3
+## Download data  
+
+Note change in command because normally you're running `aws` as an alias but need to make sure that a volume to download is attached when syncing from S3
 ```
 docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/cluster_scripts amazon/aws-cli s3 sync s3://described-vs-experienced/ddModels/cluster_scripts/optim_out /cluster_scripts/optim_out
 ```
@@ -149,7 +153,7 @@ docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/cluster_scripts amazon/aws-c
 
 [Bootstrap actions](https://docs.aws.amazon.com/parallelcluster/latest/ug/custom-bootstrap-actions-v3.html) allow you to setup your head and compute nodes however you'd like. With bootstrap actions you can install scripts, setup aliases, download data from S3 etc. You can have different setup scripts for head and compute nodes. Typically these are placed in S3 and when configuring your cluster given access to for the relevant nodes in your config file (as described later).
 
-For example, you can have a script to pull a Docker image and create some directories in your head node with a script `head-node-setup-env.sh`
+For example, you can have a script to pull a Docker image and create some directories in your head node with a script [`head-node-setup-env.sh`](https://github.com/zenkavi/fmriAnalysisPipeline/blob/main/resources/head-node-setup-env.sh)
 
 ```
 #! /bin/bash
@@ -173,48 +177,63 @@ chown -R ec2-user: /shared
 echo "alias squeue='squeue -o \"%.18i %.9P %.18j %.8u %.2t %.10M %.6D %R\"'">> /home/ec2-user/.bash_profile
 ```
 
-Copy script with [bootstrap actions](https://docs.aws.amazon.com/parallelcluster/latest/ug/pre_post_install.html) to s3
+And copy this script to s3
 ```
 docker run --rm -it -v ~/.aws:/root/.aws -v $(pwd):/aws amazon/aws-cli s3 cp /aws/head-node-setup-env.sh s3://zenkavi/head-node-setup-env.sh
 ```
 
+to use in your cluster config file.  
+
+Some version of bootstrap action scripts will almost certainly be necessary for any clusters you make, since otherwise these are very bare-bone machines without anything else installed in them.  
+
 ## Cluster config file
 
-- Set up temporary cluster config file with the environment variables piped in. Note [`make_cluster_config_ini.sh`](https://github.com/zenkavi/DescribedVsLearned_fmri/blob/master/preproc/00_aws/make_cluster_config_ini.sh) creates a `tmp.ini` file with the values piped in. Since I don't want to share these values publicly this file is not committed to my git history through a global setting in my `~/.gitignore` (add `tmp*` to `~/.gitignore`).
+[My example file](https://github.com/zenkavi/fmriAnalysisPipeline/blob/main/resources/make_tmp_cluster_config.sh)
+
+- Set up temporary cluster config file with the environment variables piped in. Note [`make_cluster_config_ini.sh`](https://github.com/zenkavi/DescribedVsLearned_fmri/blob/master/preproc/00_aws/make_cluster_config_ini.sh) creates a `tmp.ini` file with the values piped in. [Since I don't want to share these values publicly](#common-practices) this file is not committed to my git history through a global setting in my `~/.gitignore` (add `tmp*` to `~/.gitignore`).
 ```
 ./make_cluster_config_ini.sh
 ```
 
 ## Create and use cluster
 
-- Create cluster using temporary custom config.
+### Create cluster using temporary custom config
 ```
 pcluster create-cluster test-cluster -c tmp.yaml
 ```
 
-- Check cluster status
+### Check cluster status
 ```
 pcluster list --color
 ```
 
-- Log onto cluster. You can directly ssh to the head node, but the compute nodes are only accessible from the head node, not from the Internet.
+### Log onto cluster
+
+You can directly ssh to the head node, but the compute nodes are only accessible from the head node, not from the Internet.
 ```
 pcluster ssh test-cluster -i $KEYS_PATH/test-cluster.pem
 ```
 
-- Stop and start compute nodes of cluster
+Note that `$KEYS_PATH` is an environment variable that points to where your aws keys are stored on your system.
+
+### Stop and start compute nodes of cluster
 ```
 pcluster stop test-cluster
 
 pcluster start test-cluster
 ```
 
-- Update cluster
+### Update cluster
+
+If you want to change some configurations of your cluster ...
+
+This is not possible for all options.
+
 ```
 pcluster update test-cluster -c tmp.ini
 ```
 
-- Delete cluster
+### Delete cluster
 ```
 pcluster delete test-cluster
 ```
